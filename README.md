@@ -1,5 +1,6 @@
-Linux core homework
+Lesson1 Homework
 
+```
 [vagrant@kernel-update ~]$ uname -r
 4.18.0-277.el8.x86_64
 [vagrant@kernel-update ~]$ yum install -y https://www.elrepo.org/elrepo-release-8.el8.elrepo.noarch.rpm 
@@ -98,3 +99,4 @@ user@ubuntu:~$ vagrant ssh
 Last login: Wed Jan 11 17:09:06 2023 from 10.0.2.2
 [vagrant@kernel-update ~]$ uname -r
 6.1.4-1.el8.elrepo.x86_64
+```
