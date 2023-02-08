@@ -1,3 +1,4 @@
+```
 [root@localhost ~]# vgs
   VG     #PV #LV #SN Attr   VSize   VFree
   centos   1   2   0 wz--n- <31.00g 4.00m
