@@ -1,0 +1,40 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "centos/7"
+
+#  config.vm.provision "ansible" do |ansible|
+#    ansible.verbose = "vvv"
+#    ansible.playbook = "playbook.yml"
+#    ansible.become = "true"
+#  end
+
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 6192
+    v.cpus = 4
+  end
+ 
+  config.vm.provision "shell", inline: <<-SHELL
+    cp /vagrant/watchlog /etc/sysconfig/watchlog
+    cp /vagrant/watchlog.log /var/log/watchlog.log
+    cp /vagrant/watchlog.sh /opt/watchlog.sh
+    chmod +x /opt/watchlog.sh 
+    cp /vagrant/watchlog.service /etc/systemd/system/watchlog.service
+    cp /vagrant/watchlog.timer /etc/systemd/system/watchlog.timer
+    systemctl start watchlog.timer 
+    yum install epel-release -y && yum install spawn-fcgi php php-cli mod_fcgid httpd -y
+    cp /vagrant/spawn-fcgi /etc/sysconfig/spawn-fcgi
+    cp /vagrant/spawn-fcgi.service /etc/systemd/system/spawn-fcgi.service
+    systemctl start spawn-fcgi
+    cp /vagrant/httpd-first /etc/sysconfig/httpd-first
+    cp /vagrant/httpd-second /etc/sysconfig/httpd-second
+    cp /vagrant/first.conf /etc/httpd/conf/first.conf
+    cp /vagrant/second.conf /etc/httpd/conf/second.conf
+    cp /vagrant/httpd@.service /usr/lib/systemd/system/httpd@.service 
+    systemctl start httpd@first
+    systemctl  start httpd@second
+  SHELL
+  end 
+
+

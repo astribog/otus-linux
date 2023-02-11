@@ -1,0 +1,11 @@
+
+[Unit]
+Description=Run watchlog script every minute
+Requires=watchlog.service
+
+[Timer]
+Unit=watchlog.service
+OnCalendar=*-*-* *:*:00
+
+[Install]
+WantedBy=timers.target
