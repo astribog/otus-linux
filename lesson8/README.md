@@ -1,3 +1,5 @@
+## Root Volume Group Renaming
+
 ```
 [root@localhost ~]# vgs
   VG     #PV #LV #SN Attr   VSize   VFree
@@ -12,6 +14,11 @@
 [root@localhost ~]# vgs
   VG   #PV #LV #SN Attr   VSize   VFree
   otus   1   2   0 wz--n- <31.00g 4.00m
+```
+
+## Adding module to initrd
+
+```
 [user@localhost ~]$ sudo mkdir /usr/lib/dracut/modules.d/01test
 [user@localhost ~]$ cd /usr/lib/dracut/modules.d/01test
 [user@localhost 01test]$ sudo vi module-setup.sh
