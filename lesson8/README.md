@@ -1,3 +1,30 @@
+## Changing root password 1
+
+```
+boot menu - `e`
+put "rd.break" at the end of line, starting with "linux16"
+`ctrl-x`
+switch_root:/# mount -o remount,rw /sysroot
+switch_root:/# chroot /sysroot
+sh-4.2# passwd root
+sh-4.2# touch /.autorelabel
+sh-4.2# exit
+switch_root:/# reboot
+```
+
+## Changing root password 2
+
+```
+boot menu - `e`
+replace "ro" with "rw init=/sysroot/bin/sh" at the line, starting with "linux16
+`ctrl-x`
+:/# chroot /sysroot
+:/# passwd
+:/# touch /.autorelabel
+:/# exit
+:/# reboot
+```
+
 ## Root Volume Group Renaming
 
 ```
