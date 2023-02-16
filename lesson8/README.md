@@ -25,7 +25,7 @@ replace "ro" with "rw init=/sysroot/bin/sh" at the line, starting with "linux16
 :/# reboot
 ```
 
-## Root Volume Group Renaming
+## Renaming Root Volume Group
 
 ```
 [root@localhost ~]# vgs
@@ -57,3 +57,4 @@ replace "ro" with "rw init=/sysroot/bin/sh" at the line, starting with "linux16
 [root@localhost ~]# mkinitrd -f -v /boot/initramfs-$(uname -r).img $(uname -r)
 [root@localhost ~]# lsinitrd -m /boot/initramfs-$(uname -r).img | grep test
 test
+```
