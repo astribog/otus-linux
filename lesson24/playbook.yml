@@ -1,0 +1,91 @@
+---
+- name: Set TZ to Moscow
+  hosts: all
+  become: true
+  tasks:
+  - name: Set TZ to Moscow
+    command: cp /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+    notify: restart chronyd
+  handlers: 
+  - name: restart chronyd
+    service: name=chronyd state=restarted
+  
+- name: web server setup
+  hosts: web
+  become: true
+  tasks:
+    - name: Install EPEL Repo package from standard repo
+      yum:
+        name: epel-release
+        state: present
+    - name: Install nginx package from epel repo
+      yum:
+        name: nginx
+        state: latest
+    - name: Install audispd-plugins
+      yum:
+        name: audispd-plugins
+        state: latest     
+    - name: copy auditd.service from template
+      template:
+        src: templates/web/auditd.service
+        dest: /usr/lib/systemd/system/auditd.service
+    - name: reload daemon
+      command: systemctl daemon-reload
+    - name: copy nginx.conf from template
+      template:
+        src: templates/web/nginx.conf
+        dest: /etc/nginx/nginx.conf
+      notify: restart nginx
+    - name: copy audit.rules from template
+      template:
+        src: templates/web/audit.rules
+        dest: /etc/audit/rules.d/audit.rules
+    - name: copy au-remote.conf from template
+      template:
+        src: templates/web/au-remote.conf
+        dest: /etc/audisp/plugins.d/au-remote.conf
+    - name: copy audisp-remote.conf from template
+      template:
+        src: templates/web/audisp-remote.conf
+        dest: /etc/audisp/audisp-remote.conf  
+    - name: copy auditd.conf from template
+      template:
+        src: templates/web/auditd.conf
+        dest: /etc/audit/auditd.conf
+      notify: restart audit
+  handlers:
+  - name: restart nginx
+    service: name=nginx state=restarted
+  - name: restart audit
+    service: name=auditd state=restarted
+
+- name: log server setup
+  hosts: log
+  become: true
+  tasks:
+    - name: copy rsyslog.conf from template
+      template:
+        src: templates/log/rsyslog.conf
+        dest: /etc/rsyslog.conf
+      notify: restart rsyslog
+    - name: copy auditd.service from template
+      template:
+        src: templates/log/auditd.service
+        dest: /usr/lib/systemd/system/auditd.service
+    - name: reload daemon
+      command: systemctl daemon-reload
+    - name: copy auditd.conf from template
+      template:
+        src: templates/log/auditd.conf
+        dest: /etc/audit/auditd.conf
+      notify: restart audit  
+  handlers: 
+  - name: restart rsyslog
+    service: name=rsyslog state=restarted
+  - name: restart audit
+    service: name=auditd state=restarted
+
+
+
+

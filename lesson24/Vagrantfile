@@ -1,0 +1,34 @@
+Vagrant.configure("2") do |config|
+  # Base VM OS configutation
+  config.vm.box = "centos/7"
+  config.vm.box_version = "2004.01"
+
+  config.vm.provider :virtualbox do |v|
+    v.memory = 1024
+    v.cpus = 1
+  end
+  # Define two VMs
+  boxes = [
+    { :name => "web",
+      :ip => "192.168.56.150",
+    },
+    { :name => "log",
+      :ip => "192.168.56.151",
+    }  
+  ]
+  # Provision each of the VMs
+  boxes.each do |opts|
+    config.vm.define opts[:name] do |config|
+      config.vm.hostname = opts[:name]
+      config.vm.network "private_network", ip: opts[:ip] 
+      if opts[:name] == boxes.last[:name]
+        config.vm.provision "ansible" do |ansible|
+          ansible.playbook = "playbook.yml"
+          ansible.inventory_path = "staging/hosts"
+          ansible.host_key_checking = "false"
+          ansible.limit = "all"
+        end
+      end
+    end
+  end
+end
