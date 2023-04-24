@@ -1,0 +1,129 @@
+---
+- name: Set up NAT on inetRouter
+  hosts: inetRouter
+  become: true
+  tasks:
+    - name: Install iptables
+      yum:
+        name:
+        - iptables
+        - iptables-services
+        state: latest
+        update_cache: true
+    - name: Copy iptables config
+      template: 
+        src: templates/iptables
+        dest: /etc/sysconfig/iptables
+        owner: root
+        group: root
+        mode: 0644
+    - name: Apply iptables save
+      shell: "iptables-restore < /etc/sysconfig/iptables"
+
+- name: Enable ip forwarding
+  hosts: routers
+  become: true
+  tasks: 
+    - name: enable ip forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: true
+        state: present
+        reload: true
+    - name: Apply sysctl for CentOS
+      command: sysctl -p 
+
+
+- name: Routes on CentOS
+  hosts: centralRouter,centralServer,inetRouter
+  become: true
+  tasks: 
+    - name: Remove DEFROUTE
+      when: (ansible_hostname == "centralRouter") or 
+            (ansible_hostname == "centralServer")
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth0 
+        line: DEFROUTE=no
+    - name: Add new DEFROUTE to centralRouter
+      when: (ansible_hostname == "centralRouter") 
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth1 
+        line: GATEWAY=192.168.255.1
+    - name: Add Routes to centralRouter eth5
+      when: (ansible_hostname == "centralRouter")   
+      template:
+        src: templates/centralRouter_routes_eth5.j2
+        dest: /etc/sysconfig/network-scripts/route-eth5
+        owner: root
+        group: root
+        mode: 0644
+    - name: Add Routes to centralRouter eth6
+      when: (ansible_hostname == "centralRouter")   
+      template:
+        src: templates/centralRouter_routes_eth6.j2
+        dest: /etc/sysconfig/network-scripts/route-eth6
+        owner: root
+        group: root
+        mode: 0644
+    - name: Add Routes to inetRouter eth1
+      when: (ansible_hostname == "inetRouter")   
+      template:
+        src: templates/inetRouter_routes_eth1.j2
+        dest: /etc/sysconfig/network-scripts/route-eth1
+        owner: root
+        group: root
+        mode: 0644
+    - name: Add new DEFROUTE to centralServer
+      when: (ansible_hostname == "centralServer") 
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth1 
+        line: GATEWAY=192.168.0.1
+    - name: service network restart
+      command: service network restart
+
+- name: Routes on Ubuntu
+  hosts: office1Server,office1Router
+  become: true
+  tasks:
+    - name: Copy netplan config
+      when: (ansible_hostname == "office1Server")
+      template: 
+        src: templates/office1Server_routes.j2
+        dest: /etc/netplan/50-vagrant.yaml
+        owner: root
+        group: root
+        mode: 0644
+    - name: Copy netplan config
+      when: (ansible_hostname == "office1Router")
+      template: 
+        src: templates/office1Router_routes.j2
+        dest: /etc/netplan/50-vagrant.yaml
+        owner: root
+        group: root
+        mode: 0644
+    - name: Apply netplan
+      command: sudo netplan apply
+
+- name: Routes on Debian
+  hosts: office2Server,office2Router
+  become: true
+  tasks: 
+    - name: Copy network config to office2Server
+      when: (ansible_hostname == "office2Server")
+      template: 
+        src: templates/office2Server_routes.j2
+        dest: /etc/network/interfaces
+        owner: root
+        group: root
+        mode: 0644
+    - name: Copy network config to office2Router
+      when: (ansible_hostname == "office2Router")
+      template: 
+        src: templates/office2Router_routes.j2
+        dest: /etc/network/interfaces
+        owner: root
+        group: root
+        mode: 0644
+    - name: systemctl restart networking
+      command: systemctl restart networking
