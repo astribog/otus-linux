@@ -1,0 +1,125 @@
+---
+- name: Testing purpose
+  hosts: centralRouter
+  become: true
+  tasks:
+    - name: Install EPEL Repo package from standard repo
+      yum:
+        name: epel-release
+        state: present
+        update_cache: true
+    - name: Install hping3 package from epel repo
+      yum:
+        name: hping3
+        state: latest
+        update_cache: true
+    - name: Copy inetRouter private key
+      template:
+        src: .vagrant/machines/inetRouter/virtualbox/private_key
+        dest: /home/vagrant/inetRouter-private_key
+        owner: vagrant
+        group: vagrant
+        mode: 600
+    
+- name: Enable ip forwarding
+  hosts: routers
+  become: true
+  tasks: 
+    - name: enable ip forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: true
+        state: present
+        reload: true
+    - name: Apply sysctl for CentOS
+      command: sysctl -p 
+
+
+- name: Routes
+  hosts: centralRouter,centralServer,inetRouter
+  become: true
+  tasks: 
+    - name: Remove DEFROUTE
+      when: (ansible_hostname == "centralRouter") or 
+            (ansible_hostname == "centralServer")
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth0 
+        line: DEFROUTE=no
+    - name: Add new DEFROUTE to centralRouter
+      when: (ansible_hostname == "centralRouter") 
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth1 
+        line: GATEWAY=192.168.255.1
+    - name: Add Routes to inetRouter eth1
+      when: (ansible_hostname == "inetRouter")   
+      template:
+        src: templates/inetRouter_routes_eth1.j2
+        dest: /etc/sysconfig/network-scripts/route-eth1
+        owner: root
+        group: root
+        mode: 0644
+    - name: Add Routes to "inetRouter2" eth1
+      tags: 
+        - test
+      when: (ansible_hostname == "inetRouter2")   
+      template:
+        src: templates/inetRouter2_routes_eth1.j2
+        dest: /etc/sysconfig/network-scripts/route-eth1
+        owner: root
+        group: root
+        mode: 0644
+    - name: Add new DEFROUTE to centralServer
+      when: (ansible_hostname == "centralServer") 
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth1 
+        line: GATEWAY=192.168.0.1
+    - name: service network restart
+      command: service network restart
+
+- name: Set up iptables on routers
+  hosts: routers
+  become: true
+  tasks:
+    - name: Install iptables
+      yum:
+        name:
+        - iptables
+        - iptables-services
+        state: latest
+        update_cache: true
+    - name: Copy iptables config to inetRouter
+      when: (ansible_hostname == "inetRouter")   
+      template: 
+        src: templates/inetRouter_iptables.j2
+        dest: /etc/sysconfig/iptables
+        owner: root
+        group: root
+        mode: 0644
+    - name: Copy iptables config to inetRouter2
+      when: (ansible_hostname == "inetRouter2")   
+      template: 
+        src: templates/inetRouter2_iptables.j2
+        dest: /etc/sysconfig/iptables
+        owner: root
+        group: root
+        mode: 0644
+    - name: service network restart
+      command: service network restart
+    - name: Apply iptables save
+      shell: "iptables-restore < /etc/sysconfig/iptables"
+
+- name: web server setup
+  hosts: centralServer
+  become: true
+  tasks:
+    - name: Install EPEL Repo package from standard repo
+      yum:
+        name: epel-release
+        state: present
+    - name: Install nginx package from epel repo
+      yum:
+        name: nginx
+        state: latest
+    - name: Restart nginx
+      service: name=nginx state=restarted 
