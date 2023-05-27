@@ -1,0 +1,65 @@
+---
+- name: OpenVPN server config
+  hosts: all
+  become: true
+  tasks:
+    - name: Install EPEL Repo package from standard repo
+      yum:
+        name: epel-release
+        state: present
+        update_cache: true
+    - name: Install OpenVPN & iperf3 package from epel repo
+      yum:
+        name: 
+          - openvpn
+          - iperf3
+        state: latest
+        update_cache: true
+    - name: Enable ip forwarding
+      when:  (ansible_hostname == "server")
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: true
+        state: present
+        reload: true
+    - name: Gen key
+      when:  (ansible_hostname == "server")
+      command: openvpn --genkey --secret /etc/openvpn/static.key
+    - name: Copy OpenVPN server config
+      when:  (ansible_hostname == "server")
+      tags: test
+      template:
+        src: templates/1/server.conf.server.j2
+        dest: /etc/openvpn/server.conf
+        owner: root
+        group: root
+        mode: 0644
+    - name: Copy OpenVPN systemd unit
+      template:
+        src: templates/1/openvpn@.service.j2
+        dest: /etc/systemd/system/openvpn@.service
+        owner: root
+        group: root
+        mode: 0644
+    - name: Copy OpenVPN client config
+      when:  (ansible_hostname == "client")
+      tags: test
+      template:
+        src: templates/1/server.conf.client.j2
+        dest: /etc/openvpn/server.conf
+        owner: root
+        group: root
+        mode: 0644
+    - name: Fetch the static.key from the server to host
+      fetch: src=/etc/openvpn/static.key dest=buffer/ flat=yes
+      when: (ansible_hostname == 'server')
+    - name: Copy the static.key from host to client
+      copy: src=buffer/static.key  dest=/etc/openvpn/static.key 
+      when: (ansible_hostname == 'client')
+    - name: Start & enable OpenVPN service
+      tags: test
+      systemd:
+        name: openvpn@server
+        state: restarted
+        enabled: yes

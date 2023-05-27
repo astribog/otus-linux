@@ -1,0 +1,100 @@
+---
+- name: OpenVPN server RAS config
+  hosts: all
+  become: true
+  tasks:
+    - name: Install EPEL Repo package from standard repo
+      yum:
+        name: epel-release
+        state: present
+        update_cache: true
+    - name: Install openvpn, zip, unzip packages from epel repo
+      yum:
+        name: 
+          - openvpn
+        state: latest
+        update_cache: true
+    - name: Disable SE Linux
+      command: 'setenforce 0'
+    - name: Install easy-rsa packages from epel repo
+      when:  (ansible_hostname == "server")
+      yum:
+        name: 
+          - easy-rsa
+        state: latest
+        update_cache: true
+    - name: Enable ip forwarding
+      when:  (ansible_hostname == "server")
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: true
+        state: present
+        reload: true
+    - name: Copy OpenVPN server config
+      when:  (ansible_hostname == "server")
+      tags: test7
+      template:
+        src: templates/2/server.conf.server.j2
+        dest: /etc/openvpn/server.conf
+        owner: root
+        group: root
+        mode: 0644
+    - name: Copy OpenVPN systemd unit
+      template:
+        tags: test6
+        src: templates/openvpn@.service.j2
+        dest: /etc/systemd/system/openvpn@.service
+        owner: root
+        group: root
+        mode: 0644
+    - name: Generates keys & certificates
+      tags: test2
+      when:  (ansible_hostname == "server")
+      shell: |
+        cd /etc/openvpn
+        /usr/share/easy-rsa/3.0.8/easyrsa init-pki
+        echo 'rasvpn' | /usr/share/easy-rsa/3.0.8/easyrsa build-ca nopass
+        echo 'rasvpn' | /usr/share/easy-rsa/3.0.8/easyrsa gen-req server nopass
+        echo 'yes' | /usr/share/easy-rsa/3.0.8/easyrsa sign-req server server
+        /usr/share/easy-rsa/3.0.8/easyrsa gen-dh
+        openvpn --genkey --secret ca.key
+        echo 'client' | /usr/share/easy-rsa/3/easyrsa gen-req client nopass
+        echo 'yes' | /usr/share/easy-rsa/3/easyrsa sign-req client client
+        echo 'iroute 10.10.10.0 255.255.255.0' > /etc/openvpn/client/client
+    - name: Archive keys & certificates to keys.zip
+      tags: test4
+      when: (ansible_hostname == 'server')
+      command: "zip -j /home/vagrant/keys.zip {{ item }}"
+      with_items:
+        - "/etc/openvpn/pki/ca.crt"
+        - "/etc/openvpn/pki/issued/client.crt"
+        - "/etc/openvpn/pki/private/client.key" 
+    - name: Fetch keys.tar from the server to host
+      tags: test4
+      fetch: src=/home/vagrant/keys.zip dest=buffer/ flat=yes
+      when: (ansible_hostname == 'server')
+    - name: Copy keys.tar from host to client
+      tags: test4
+      copy: src=buffer/keys.zip  dest=/home/vagrant/keys.zip 
+      when: (ansible_hostname == 'client')
+    - name: Unarchive keys.tar
+      tags: test4
+      when: (ansible_hostname == 'client')
+      command: 'unzip keys.zip'
+    - name: Copy OpenVPN client config
+      when:  (ansible_hostname == "client")
+      tags: test5
+      template:
+        src: templates/2/server.conf.client.j2
+        dest: /home/vagrant/client.conf
+        #owner: root
+        #group: root
+        #mode: 0644
+    - name: Start & enable OpenVPN service
+      when:  (ansible_hostname == "server")
+      tags: test
+      systemd:
+        name: openvpn@server
+        state: restarted
+        enabled: yes
