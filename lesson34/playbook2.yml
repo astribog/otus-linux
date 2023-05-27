@@ -12,6 +12,8 @@
       yum:
         name: 
           - openvpn
+          - zip
+          - unzip
         state: latest
         update_cache: true
     - name: Disable SE Linux
