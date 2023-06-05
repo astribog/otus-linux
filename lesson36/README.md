@@ -83,7 +83,7 @@ rtt min/avg/max/mdev = 1.251/1.378/1.475/0.103 ms
 ```
 
 ### Bond test
-
+Проверяем на хостах, что бонд поднялся 
 ```
 [vagrant@centralRouter ~]$ ip a
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
@@ -121,6 +121,55 @@ rtt min/avg/max/mdev = 1.251/1.378/1.475/0.103 ms
     inet6 fe80::a00:27ff:febe:f42/64 scope link 
        valid_lft forever preferred_lft forever
 
+```
+```
+[vagrant@inetRouter ~]$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 52:54:00:27:8b:50 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.2.15/24 brd 10.0.2.255 scope global dynamic noprefixroute eth0
+       valid_lft 66197sec preferred_lft 66197sec
+    inet6 fe80::5054:ff:fe27:8b50/64 scope link 
+       valid_lft forever preferred_lft forever
+3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc fq_codel master bond0 state UP group default qlen 1000
+    link/ether 08:00:27:12:75:d0 brd ff:ff:ff:ff:ff:ff
+4: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc fq_codel master bond0 state UP group default qlen 1000
+    link/ether 08:00:27:97:e9:6b brd ff:ff:ff:ff:ff:ff
+5: eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 08:00:27:52:8d:a3 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.56.10/24 brd 192.168.56.255 scope global noprefixroute eth3
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a00:27ff:fe52:8da3/64 scope link 
+       valid_lft forever preferred_lft forever
+6: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 08:00:27:12:75:d0 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.255.1/30 brd 192.168.255.3 scope global noprefixroute bond0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a00:27ff:fe12:75d0/64 scope link 
+       valid_lft forever preferred_lft forever
+```
+Запускаем пинг с centralRouter на inetRouter 
+```
+[vagrant@centralRouter ~]$ ping 192.168.255.1
+PING 192.168.255.1 (192.168.255.1) 56(84) bytes of data.
+64 bytes from 192.168.255.1: icmp_seq=1 ttl=64 time=3.27 ms
+64 bytes from 192.168.255.1: icmp_seq=2 ttl=64 time=1.61 ms
+64 bytes from 192.168.255.1: icmp_seq=3 ttl=64 time=1.05 ms
+64 bytes from 192.168.255.1: icmp_seq=4 ttl=64 time=1.46 ms
+```
+На inetRouter отключаем интерфейс, состоящий в бонде 
+
+```
+[vagrant@inetRouter ~]$ sudo ip link set down eth1
+```
+Потерь нет 
+
+```
 [vagrant@centralRouter ~]$ ping 192.168.255.1
 PING 192.168.255.1 (192.168.255.1) 56(84) bytes of data.
 64 bytes from 192.168.255.1: icmp_seq=1 ttl=64 time=3.27 ms
