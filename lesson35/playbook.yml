@@ -57,7 +57,8 @@
       copy: src=slave-named.conf dest=/etc/named.conf owner=root group=named mode=0640
       tags: always
     - name: copy resolv.conf to the servers
-      copy: src=servers-resolv.conf dest=/etc/resolv.conf owner=root group=root mode=0644
+      copy: src=servers-resolv.conf.j2 dest=/etc/resolv.conf owner=root group=root mode=0644
+      tags: always    
     - name: set /etc/named permissions
       file: path=/etc/named owner=root group=named mode=0670
     - name: ensure named is running and enabled
