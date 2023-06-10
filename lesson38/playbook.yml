@@ -1,0 +1,99 @@
+---
+- name: Borg server install
+  hosts: all
+  become: true
+  tags: test
+  tasks:
+    - name: Install EPEL Repo package from standard repo
+      yum:
+        name: epel-release
+        state: present
+        update_cache: true
+    - name: Install borgbackup package from epel repo
+      yum:
+        name: 
+          - borgbackup
+        state: latest
+        update_cache: true
+
+- name: Create backup partition, "borg" user, add rights to backup directory
+  hosts: backup
+  become: true
+  tags: test
+  tasks:
+    - shell: | 
+         useradd -m borg
+         mkdir /var/backup       
+    - parted:
+        device: /dev/sdb
+        number: 1
+        flags: [ lvm ]
+        state: present
+    - filesystem:
+        fstype: xfs
+        dev: /dev/sdb1
+    - mount:
+        fstype: xfs
+        src: /dev/sdb1
+        path: /var/backup
+        state: mounted
+    - shell: chown borg:borg /var/backup    
+
+- name: Prepare ssh keys on client and transfer to host
+  hosts: client
+  become: true 
+  tags: test
+  tasks:
+    - shell: ssh-keygen -q -t rsa -N '' <<< $'\ny' >/dev/null 2>&1
+    - fetch:
+        src: "~/.ssh/id_rsa.pub"
+        dest: "buffer/"
+        flat: yes
+  
+- name: Transfer key from host to server
+  hosts: backup
+  become: true
+  become_user: borg
+  tags: test1
+  tasks:
+    - copy:
+        src: buffer/id_rsa.pub
+        dest: /tmp/id_rsa.pub
+    - shell: |
+        mkdir ~/.ssh
+        touch ~/.ssh/authorized_keys
+        chmod 700 ~/.ssh
+        chmod 600 ~/.ssh/authorized_keys
+        cat /tmp/id_rsa.pub >> ~/.ssh/authorized_keys 
+    
+
+- name: Client borg repo initialize, copy and start borg systemd unit with systemd timer
+  hosts: client
+  become: true
+  tags: test2
+  tasks:   
+    - template:
+        src: borg-backup.service
+        dest: /etc/systemd/system/borg-backup.service
+        owner: root
+        group: root
+        mode: 0644
+    - template:
+        src: borg-backup.timer
+        dest: /etc/systemd/system/borg-backup.timer
+        owner: root
+        group: root
+        mode: 0644
+    - template:
+        src: ssh_config
+        dest: /root/.ssh/config 
+        mode: 0400     
+    - shell: |
+         rm -rf /var/backup/lost+found/
+         borg init --encryption=none borg@192.168.56.150:/var/backup/
+         systemctl daemon-reload
+         systemctl start borg-backup.timer
+         systemctl enable borg-backup.timer
+   
+
+          
