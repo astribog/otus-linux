@@ -4,7 +4,9 @@
 
 ## Install FreeIPA server
 Установим модуль DL1: yum install -y @idm:DL1
+
 Установим FreeIPA-сервер: yum install -y ipa-server
+
 Запустим скрипт установки: ipa-server-install
 
 
