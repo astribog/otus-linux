@@ -1,0 +1,61 @@
+---
+- name: Base set up
+  hosts: all
+  tags: base
+  become: yes
+  tasks:
+  - name: Change repo on CentOS8
+    shell: |
+      sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+      sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+  - name: install soft on CentOS
+    yum:
+      name:
+        - vim
+        - chrony
+      state: present
+      update_cache: true
+  #Disable firewalld
+  - name: disable firewalld
+    service:
+      name: firewalld
+      state: stopped
+      enabled: false
+  # Disable SElinux after reboot
+  - name: disable SElinux
+    selinux:
+      state: disabled
+  # Disable SElinux before reboot
+  - name: disable SElinux now
+    shell: setenforce 0
+  - name: Set up timezone
+    timezone:
+      name: "Europe/Moscow"
+  - name: enable chrony
+    service:
+      name: chronyd
+      state: restarted
+      enabled: true
+  - name: change /etc/hosts
+    template:
+      src: hosts.j2
+      dest: /etc/hosts
+      owner: root
+      group: root
+      mode: 0644
+ 
+# Add clients to domain
+- name: add host to ipa-server
+  hosts: clients
+  become: true
+  tags: ipa
+  tasks:
+  - name: install module ipa-client
+    yum:
+      name:
+        - freeipa-client
+      state: present
+      update_cache: true
+  - name: add host to ipa-server
+    shell: echo -e "yes\nyes" | ipa-client-install --mkhomedir --domain=OTUS.LAN --server=ipa.otus.lan --no-ntp -p admin -w 11111111
+
