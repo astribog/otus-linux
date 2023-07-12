@@ -1,0 +1,161 @@
+---
+- name: MySQL Replication
+  hosts: all
+  become: true
+  tasks: 
+  - name: Install the mysql packages 
+    ansible.builtin.apt:
+      name:
+        - "{{ item }}"
+      state: latest
+      update_cache: yes
+    with_items:
+      - python3-selinux
+      - mysql-server
+      - python3-mysqldb
+
+  - name: Copy configs
+    tags: test2
+    copy: 
+      src: "{{ item }}"
+      dest: /etc/mysql/conf.d/
+    with_items:
+      - conf.d/02-max-connections.cnf
+      - conf.d/03-performance.cnf
+      - conf.d/04-slow-query.cnf
+    
+  - name: Copy configs 2
+    tags: test2
+    template:
+      src: conf.d/01-base.cnf.j2
+      dest: /etc/mysql/conf.d/01-base.cnf 
+        
+  - name: Copy configs 3
+    tags: test2
+    template:
+      src: conf.d/05-binlog.cnf.j2
+      dest: /etc/mysql/conf.d/05-binlog.cnf 
+
+  - name: Allow remote connections
+    tags: always 
+    replace: 
+      path: /etc/mysql/mysql.conf.d/mysqld.cnf 
+      regexp: "127.0.0.1"
+      replace: "0.0.0.0"    
+  
+  - name: Restart the mysql services
+    tags: test2
+    service:
+      name: "mysql"
+      state: restarted
+      enabled: yes
+
+  - name: Copy .my.cnf file with root password credentials
+    tags: test2
+    template:
+      src: .my.cnf.j2
+      dest: ~/.my.cnf
+      mode: 0600
+      
+  - name: Update mysql root password for all root accounts
+    mysql_user:
+      name: root
+      host: "{{ item }}"
+      password: "secret"
+    with_items:
+    - "{{ ansible_hostname }}"
+    - 127.0.0.1
+    - ::1
+    - localhost
+    when: ansible_hostname != 'localhost'
+    
+  - name: Update mysql root password for all root accounts
+    mysql_user:
+      name: root
+      host: "{{ item }}"
+      password: "secret"
+    with_items:
+    - 127.0.0.1
+    - ::1
+    - localhost
+    when: ansible_hostname == 'localhost'
+
+  - name: Create new database
+    tags: test77
+    mysql_db:
+      name:
+        - bet
+      state: present
+    when: (ansible_hostname == "master")
+
+  - name: Copy dump to master
+    tags: test66
+    copy: 
+        src: bet.dmp
+        dest: /tmp/bet.dmp
+    when: (ansible_hostname == "master")
+
+  - name: Restore dump on master
+    tags: test88
+    mysql_db:
+      name: bet
+      state: import
+      target: /tmp/bet.dmp
+    when: (ansible_hostname == "master")
+
+  - name: Create the replication user
+    tags: test56
+    mysql_user:
+      name: repl
+      host: "%"
+      password: pass
+      priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+      state: present
+    when: (ansible_hostname == "master")
+
+  - name: Dump database on master
+    tags: test999
+    mysql_db:
+      name: all
+      state: dump
+      target: /tmp/bet.dmp
+      master_data: 1
+      ignore_tables:
+       - bet.events_on_demand
+       - bet.v_same_event
+    when: (ansible_hostname == "master")
+
+  - name: Fetch dump from master to host
+    tags: test111
+    fetch: src=/tmp/bet.dmp dest=buffer/ flat=yes
+    when: (ansible_hostname == 'master')
+  
+  - name: Copy dump from host to slave
+    tags: test111
+    copy: src=buffer/bet.dmp dest=/tmp/bet.dmp
+    when: (ansible_hostname == 'slave')
+
+  - name: Restore database on slave
+    tags: test111
+    mysql_db:
+      name: bet
+      state: import
+      target: /tmp/bet.dmp
+    when: (ansible_hostname == "slave")
+
+  - name: Change the master in slave to start the replication
+    tags: test333
+    mysql_replication:
+      mode: changeprimary
+      primary_host: 192.168.56.150
+      primary_user: repl
+      primary_password: pass
+#      primary_port: "3306"
+      primary_auto_position: true
+    when: (ansible_hostname == "slave")
+
+  - name: Start replication
+    tags: test666
+    mysql_replication:
+      mode: startreplica
+    when: (ansible_hostname == "slave")  
