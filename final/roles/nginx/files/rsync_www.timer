@@ -1,0 +1,8 @@
+[Unit]
+Description=Rsync_WWW
+
+[Timer]
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target

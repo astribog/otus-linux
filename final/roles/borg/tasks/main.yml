@@ -1,0 +1,87 @@
+---
+
+- name: Borg server install
+  ansible.builtin.apt:
+    name:
+      - "{{ item }}"
+    state: latest
+    update_cache: yes
+  with_items:
+    - borgbackup
+    - acl
+
+- name: Create backup partition, "borg" user, add rights to backup directory
+  tags: test
+  shell: | 
+    useradd -m borg
+    mkdir /var/backup       
+    chown borg:borg /var/backup
+  when: (inventory_hostname == "borg")
+
+- name: Copy preconfigure ssh private key to backup clients
+  copy:
+    src: "{{ item }}"
+    dest: /root/.ssh
+    owner: root
+    group: root
+    mode: 0600
+  with_items:
+    - id_rsa
+  when: inventory_hostname in groups['backup_clients']
+    
+- name: Copy preconfigure ssh public key to backup server
+  copy:
+    src: "{{ item }}"
+    dest: /tmp/id_rsa.pub
+  with_items:
+    - id_rsa.pub
+  when: (inventory_hostname == "borg")
+
+- name: Add preconfigure ssh public key to backup server
+  tags: test1
+  shell: |
+    mkdir /home/borg/.ssh
+    touch /home/borg/.ssh/authorized_keys
+    chown -R borg: /home/borg/.ssh 
+    chmod 700 ~/.ssh
+    chmod 600 ~/.ssh/authorized_keys
+    cat /tmp/id_rsa.pub >> /home/borg/.ssh/authorized_keys 
+  when: (inventory_hostname == "borg")
+
+- name: Copy borg systemd unit
+  template:
+    src: borg-backup.service.j2
+    dest: /etc/systemd/system/borg-backup.service
+    owner: root
+    group: root
+    mode: 0644
+  when: inventory_hostname in groups['backup_clients']
+
+- name: Copy borg systemd unit
+  copy:
+    src: borg-backup.timer
+    dest: /etc/systemd/system/borg-backup.timer
+    owner: root
+    group: root
+    mode: 0644
+  when: inventory_hostname in groups['backup_clients']
+
+- name: Copy ssh_config    
+  copy:
+    src: ssh_config
+    dest: /root/.ssh/config 
+    mode: 0400     
+
+- name: Borg storage init      
+  shell: |
+    borg init --encryption=none borg@192.168.56.160:/var/backup/
+  when: (ansible_hostname == "nginx1")
+         
+- name: Start Borg clients daemons   
+  shell: |       
+    systemctl daemon-reload
+    systemctl start borg-backup.timer
+    systemctl enable borg-backup.timer
+  when: inventory_hostname in groups['backup_clients']
+   
+

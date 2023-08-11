@@ -1,0 +1,35 @@
+---
+- name: Install and configure MySQL with master-slave replication and VIP
+  tags: sqls
+  become: true
+  hosts: sql
+  roles:
+    - mysql
+     
+- name: Install and configure NGINX with rsync and VIP    
+  tags: nginx
+  become: true
+  hosts: nginx
+  roles:
+    - nginx
+
+- name: Install and configure Borg backups   
+  tags: borg
+  become: true
+  hosts: all
+  roles:
+    - borg
+
+- name: Install and configure Zabbix   
+  tags: zbx-server
+  become: true
+  hosts: zabbix
+  roles:
+    - zabbix 
+
+- name: Install and configure Zabbix agent  
+  tags: zbx-agent
+  become: true
+  hosts: all
+  roles:
+    - zabbix-agent       

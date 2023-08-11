@@ -1,0 +1,175 @@
+---
+
+- name: Install the nginx packages 
+  ansible.builtin.apt:
+    name:
+      - "{{ item }}"
+    state: latest
+    update_cache: yes
+  with_items:
+    - nginx
+    - php-fpm
+    - php-mysql
+    - keepalived
+  
+- name: Copy master keepalived confs
+  tags: n1
+  copy:
+    src: keepalived_master_nginx.conf
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: 0644
+  when: (ansible_hostname == "nginx1")
+
+- name: Copy slave keepalived confs
+  tags: n1
+  copy:
+    src: keepalived_slave_nginx.conf
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: 0644
+  when: (ansible_hostname == "nginx2")
+  
+
+- name: Restart keepalived service
+  tags: n1
+  service:
+    name: "keepalived"
+    state: restarted
+    enabled: yes
+
+- name: Make domain dir
+  file:
+    path: /var/www/bets
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  
+- name: Copy ssl key 
+  copy:
+    src: nginx-selfsigned.key
+    dest: /etc/ssl/private/nginx-selfsigned.key
+
+- name: Copy ssl cert 
+  copy:
+    src: nginx-selfsigned.crt
+    dest: /etc/ssl/certs/nginx-selfsigned.crt
+
+- name: Copy ssl pem 
+  copy:
+    src: dhparam.pem
+    dest: /etc/nginx/dhparam.pem
+
+- name: Copy ssl conf
+  copy:
+    src: self-signed.conf
+    dest: /etc/nginx/snippets/self-signed.conf 
+
+- name: Copy ssl params conf
+  copy:
+    src: ssl-params.conf
+    dest: /etc/nginx/snippets/ssl-params.conf  
+
+- name: Copy bets domain config
+  copy:
+    src: bets
+    dest: /etc/nginx/sites-available/bets     
+  
+- name: Soft link bets domain config
+  tags: nginx
+  shell: "ln -s /etc/nginx/sites-available/bets /etc/nginx/sites-enabled/"
+
+- name: Copy bets php
+  tags: nginx1
+  copy:
+    src: bets.php
+    dest: /var/www/bets/bets.php    
+      
+- name: Restart the nginx service
+  tags: nginx1
+  service:
+    name: "nginx"
+    state: restarted
+    enabled: yes
+
+- name: Allow rsync
+  tags: a1 
+  replace: 
+    path: /etc/default/rsync
+    regexp: "RSYNC_ENABLE=false"
+    replace: "RSYNC_ENABLE=true"
+  when: (ansible_hostname == "nginx1")    
+    
+- name: Copy rsyncd config
+  tags: a1 
+  copy:
+    src: rsyncd.conf
+    dest: /etc/rsyncd.conf
+    mode: 0644
+  when: (ansible_hostname == "nginx1")    
+  
+- name: Copy rsyncd pass file
+  tags: a10 
+  template:
+    src: rsyncd.scrt.j2
+    dest: /etc/rsyncd.scrt
+    mode: 0600
+
+- name: Restart the rsync service
+  tags: a1
+  service:
+    name: "rsync"
+    state: restarted
+    enabled: yes 
+  when: (ansible_hostname == "nginx1")
+
+- name: Copy rsync sync service module and timer
+  tags: a2
+  copy:
+    src: "{{ item }}"
+    dest: /etc/systemd/system/
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+      - rsync_www.service
+      - rsync_www.timer
+  when: (ansible_hostname == "nginx2")
+
+- name: Copy rsync_www.sh
+  tags: a2
+  copy:
+    src: rsync_www.sh
+    dest: /root/rsync_www.sh
+    mode: a+x
+  when: (ansible_hostname == "nginx2")
+
+- name: Start rsync sync timer
+  tags: a2
+  shell: |
+    systemctl daemon-reload
+    systemctl start rsync_www.timer
+    systemctl enable rsync_www.timer
+  when: (ansible_hostname == "nginx2")
+
+- name: Enable UFW
+  tags: ufw
+  community.general.ufw:
+    state: "enabled"
+    policy: "deny"
+    logging: "on"
+
+- name: UFW rules
+  tags: ufw
+  community.general.ufw:
+    rule: "allow"
+    port: "{{item}}"
+    proto: "tcp"
+  with_items:
+    - "80"
+    - "443"
+    - "22"
+    - "873"  

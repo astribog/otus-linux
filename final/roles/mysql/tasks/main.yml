@@ -1,0 +1,183 @@
+---
+
+- name: Install the mysql packages 
+  ansible.builtin.apt:
+    name:
+      - "{{ item }}"
+    state: latest
+    update_cache: yes
+  with_items:
+    - python3-selinux
+    - mysql-server
+    - python3-mysqldb
+    - keepalived
+
+- name: Copy mysql configs
+  tags: test2
+  copy: 
+    src: "{{ item }}"
+    dest: /etc/mysql/conf.d/
+  with_items:
+    - 02-max-connections.cnf
+    - 03-performance.cnf
+    - 04-slow-query.cnf
+    - 05-binlog.cnf
+  
+- name: Copy mysql configs 2
+  tags: test2
+  template:
+    src: 01-base.cnf.j2
+    dest: /etc/mysql/conf.d/01-base.cnf
+
+- name: Copy master keepalived confs
+  copy:
+    src: keepalived_master.conf
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: 0644
+  when: (ansible_hostname == "sql1")
+
+- name: Copy slave keepalived confs
+  copy:
+    src: keepalived_slave.conf
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: 0644
+  when: (ansible_hostname == "sql2")
+
+- name: Restart keepalived service
+  tags: test2
+  service:
+    name: "keepalived"
+    state: restarted
+    enabled: yes
+
+- name: Allow mysql remote connections
+  tags: always 
+  replace: 
+    path: /etc/mysql/mysql.conf.d/mysqld.cnf 
+    regexp: "127.0.0.1"
+    replace: "0.0.0.0"    
+
+- name: Copy .my.cnf file with root password credentials
+  tags: test2
+  template:
+    src: .my.cnf.j2
+    dest: ~/.my.cnf
+    mode: 0600
+
+- name: Restart the mysql service
+  tags: test2
+  service:
+    name: "mysql"
+    state: restarted
+    enabled: yes
+
+- name: Update mysql root password for all root accounts 1
+  tags: ms
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "secret"
+    priv: '*.*:ALL,GRANT'
+  with_items:
+  - "{{ ansible_hostname }}"
+  - 192.168.56.140
+  - 192.168.56.141
+  - 127.0.0.1
+  - ::1
+  - localhost
+  when: ansible_hostname != 'localhost'
+  
+- name: Update mysql root password for all root accounts 2
+  tags: ms
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "secret"
+    priv: '*.*:ALL,GRANT'
+  with_items:
+  - 192.168.56.140
+  - 192.168.56.141
+  - 127.0.0.1
+  - ::1
+  - localhost
+  when: ansible_hostname == 'localhost'
+
+- name: Create new database
+  tags: test77
+  mysql_db:
+    name:
+      - bet
+    state: present
+#    when: (ansible_hostname == "master")
+
+- name: Copy dump to servers
+  tags: test66
+  copy: 
+      src: bet.dmp
+      dest: /tmp/bet.dmp
+#    when: (ansible_hostname == "master")
+
+- name: Restore dump on servers
+  tags: test88
+  mysql_db:
+    name: bet
+    state: import
+    target: /tmp/bet.dmp
+#    when: (ansible_hostname == "master")
+
+#- name: Create user with password, all database privileges and 'WITH GRANT OPTION' 
+#  tags: ms2
+#  mysql_user:
+#    state: present
+#    name: root
+#    password: secret
+#    priv:
+#      'bet.*': 'ALL,GRANT'
+      
+- name: Create the replication user
+  tags: test56
+  mysql_user:
+    name: repl
+    host: "%"
+    password: pass
+    priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+    state: present
+  when: (ansible_hostname == "sql1")
+
+- name: Change the master in slave to start the replication
+  tags: test333
+  mysql_replication:
+    mode: changeprimary
+    primary_host: 192.168.56.150
+    primary_user: repl
+    primary_password: pass
+#      primary_port: "3306"
+    primary_auto_position: true
+  when: (ansible_hostname == "sql2")
+
+- name: Start replication
+  tags: test666
+  mysql_replication:
+    mode: startreplica
+  when: (ansible_hostname == "sql2")  
+
+- name: Enable UFW
+  tags: ufw
+  community.general.ufw:
+    state: "enabled"
+    policy: "deny"
+    logging: "on"
+
+- name: UFW rules
+  tags: ufw
+  community.general.ufw:
+    rule: "allow"
+    port: "{{item}}"
+    proto: "tcp"
+  with_items:
+    - "3306"
+    - "22"

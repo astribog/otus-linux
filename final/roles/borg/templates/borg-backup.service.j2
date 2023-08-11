@@ -1,0 +1,13 @@
+[Unit]
+Description=Automated Borg Backup
+After=network.target
+
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "borg create -C zstd --stats borg@192.168.56.160:/var/backup/::{{backup_name}}-{now:%%Y-%%m-%%d_%%H:%%M:%%S} {{backup_source}} >> /var/log/borg.log 2>&1"
+# Очистка старых бэкапов
+ExecStart=/bin/bash -c "borg prune --keep-hourly 10 --keep-daily 90 --keep-monthly 12 --keep-yearly 1 borg@192.168.56.150:/var/backup/"
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[sql]
+sql1 ansible_host=192.168.56.150 ansible_port=22 ansible_private_key_file=.vagrant/machines/sql1/virtualbox/private_key server_id=1
+sql2 ansible_host=192.168.56.151 ansible_port=22 ansible_private_key_file=.vagrant/machines/sql2/virtualbox/private_key server_id=2
+[nginx]
+nginx1 ansible_host=192.168.56.140 ansible_port=22 ansible_private_key_file=.vagrant/machines/nginx1/virtualbox/private_key rsync="rsync_d1:"
+nginx2 ansible_host=192.168.56.141 ansible_port=22 ansible_private_key_file=.vagrant/machines/nginx2/virtualbox/private_key rsync="" 
+[backup_server]
+borg ansible_host=192.168.56.160 ansible_port=22 ansible_private_key_file=.vagrant/machines/borg/virtualbox/private_key
+[zabbix]
+zbx ansible_host=192.168.56.170 ansible_port=22 ansible_private_key_file=.vagrant/machines/zbx/virtualbox/private_key
+[backup_clients]
+sql1 ansible_host=192.168.56.150 ansible_port=22 ansible_private_key_file=.vagrant/machines/sql1/virtualbox/private_key backup_name="sql" backup_source="/var/lib/mysql/"
+nginx1 ansible_host=192.168.56.140 ansible_port=22 ansible_private_key_file=.vagrant/machines/nginx1/virtualbox/private_key backup_name="nginx" backup_source="/var/www/bets/"

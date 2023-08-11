@@ -1,0 +1,12 @@
+[Unit]
+Description=Rsync_WWW
+After=network.target
+
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /root/rsync_www.sh
+
+
+[Install]
+WantedBy=multi-user.target

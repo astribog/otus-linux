@@ -1,0 +1,31 @@
+server {
+    listen 443 ssl;
+    include snippets/self-signed.conf;
+    include snippets/ssl-params.conf;
+    server_name bets.local www.bets.local;
+    root /var/www/bets;
+
+    index index.html index.htm index.php;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+     }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+}
+
+server {
+    listen 80;
+    
+    server_name bets.local www.bets.local;
+
+    return 302 https://$server_name$request_uri;
+}

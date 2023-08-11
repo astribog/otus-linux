@@ -1,0 +1,8 @@
+[Unit]
+Description=Automated Borg Backup Timer
+
+[Timer]
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
