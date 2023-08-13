@@ -8,7 +8,6 @@
     update_cache: yes
   with_items:
     - borgbackup
-    - acl
 
 - name: Create backup partition, "borg" user, add rights to backup directory
   tags: test

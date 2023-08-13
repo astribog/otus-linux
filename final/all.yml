@@ -23,7 +23,7 @@
 - name: Install and configure Zabbix   
   tags: zbx-server
   become: true
-  hosts: zabbix
+  hosts: zbx
   roles:
     - zabbix 
 

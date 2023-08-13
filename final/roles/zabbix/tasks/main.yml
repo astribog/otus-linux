@@ -35,14 +35,29 @@
     - docker-buildx-plugin 
     - docker-compose-plugin
 
-- name: Copy Docker compose file
+- name: Copy Docker compose file and zabbixdb dump
   copy:
-    src: docker-compose.yml
-    dest: /root/docker-compose.yml
+    src: "{{item}}"
+    dest: /root/
+  with_items:
+    - docker-compose.yml
+    - backup.sql
 
 - name: Run Docker compose
   become_user: root
   shell: docker compose -f /root/docker-compose.yml up -d
+
+- name: Pause for 3 minutes to mysql db initialize
+  ansible.builtin.pause:
+    minutes: 3
+
+- name: Restore Zabbix db
+  shell: |
+   docker container stop root-zabbix-server-mysql-1
+   docker container stop  root-zabbix-web-nginx-mysql-1
+   "cat backup.sql | docker exec -i root-mysql-server-1 /usr/bin/mysql -u root --password=StrongPassword zabbixdb"
+   docker container start root-zabbix-server-mysql-1
+   docker container start root-zabbix-web-nginx-mysql-1
 
 - name: Enable UFW
   tags: ufw
@@ -61,4 +76,4 @@
     - "80"
     - "443"
     - "22"
-    - "10051"  
+    - "10050"  
