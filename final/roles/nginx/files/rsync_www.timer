@@ -2,7 +2,7 @@
 Description=Rsync_WWW
 
 [Timer]
-OnUnitActiveSec=1min
+OnCalendar=*-*-* *:*:00
 
 [Install]
 WantedBy=timers.target

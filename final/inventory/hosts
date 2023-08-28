@@ -9,5 +9,5 @@ borg ansible_host=192.168.56.160 ansible_port=22 ansible_private_key_file=.vagra
 [zabbix]
 zbx ansible_host=192.168.56.170 ansible_port=22 ansible_private_key_file=.vagrant/machines/zbx/virtualbox/private_key zbx_ip=172.18.0.3
 [backup_clients]
-sql1 ansible_host=192.168.56.150 ansible_port=22 ansible_private_key_file=.vagrant/machines/sql1/virtualbox/private_key backup_name="sql" backup_source="/var/lib/mysql/"
-nginx1 ansible_host=192.168.56.140 ansible_port=22 ansible_private_key_file=.vagrant/machines/nginx1/virtualbox/private_key backup_name="nginx" backup_source="/var/www/bets/"
+sql1 ansible_host=192.168.56.150 ansible_port=22 ansible_private_key_file=.vagrant/machines/sql1/virtualbox/private_key 
+nginx1 ansible_host=192.168.56.140 ansible_port=22 ansible_private_key_file=.vagrant/machines/nginx1/virtualbox/private_key

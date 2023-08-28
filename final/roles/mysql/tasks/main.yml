@@ -1,6 +1,11 @@
 ---
-
-- name: Install the mysql packages 
+- name: Install Percona xtrabackup repo
+  shell: |
+    wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
+    dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
+    percona-release enable-only tools release
+    
+- name: Install required packages 
   ansible.builtin.apt:
     name:
       - "{{ item }}"
@@ -11,6 +16,7 @@
     - mysql-server
     - python3-mysqldb
     - keepalived
+    - percona-xtrabackup-80
 
 - name: Copy mysql configs
   tags: test2
@@ -112,32 +118,22 @@
     name:
       - bet
     state: present
-#    when: (ansible_hostname == "master")
+  when: (ansible_hostname == "sql1")
 
-- name: Copy dump to servers
-  tags: test66
+- name: Copy initial db dump to sql1
   copy: 
       src: bet.dmp
       dest: /tmp/bet.dmp
-#    when: (ansible_hostname == "master")
+  when: (ansible_hostname == "sql1")
 
-- name: Restore dump on servers
+- name: Restore dump on sql1
   tags: test88
   mysql_db:
     name: bet
     state: import
     target: /tmp/bet.dmp
-#    when: (ansible_hostname == "master")
+  when: (ansible_hostname == "sql1")
 
-#- name: Create user with password, all database privileges and 'WITH GRANT OPTION' 
-#  tags: ms2
-#  mysql_user:
-#    state: present
-#    name: root
-#    password: secret
-#    priv:
-#      'bet.*': 'ALL,GRANT'
-      
 - name: Create the replication user
   tags: test56
   mysql_user:
@@ -148,6 +144,33 @@
     state: present
   when: (ansible_hostname == "sql1")
 
+- name: Dump database on sql1
+  tags: test999
+  mysql_db:
+    name: all
+    state: dump
+    target: /tmp/sql1.dmp
+    master_data: 1
+  when: (ansible_hostname == "sql1")
+
+- name: Fetch dump from master to host
+  tags: test111
+  fetch: src=/tmp/sql1.dmp dest=buffer/ flat=yes
+  when: (ansible_hostname == 'sql1')
+
+- name: Copy dump from host to sql2
+  tags: test111
+  copy: src=buffer/sql1.dmp dest=/tmp/sql1.dmp
+  when: (ansible_hostname == 'sql2')
+
+- name: Restore database on sql2
+  tags: test111
+  mysql_db:
+    name: bet
+    state: import
+    target: /tmp/sql1.dmp
+  when: (ansible_hostname == "sql2")
+
 - name: Change the master in slave to start the replication
   tags: test333
   mysql_replication:
@@ -155,7 +178,6 @@
     primary_host: 192.168.56.150
     primary_user: repl
     primary_password: pass
-#      primary_port: "3306"
     primary_auto_position: true
   when: (ansible_hostname == "sql2")
 

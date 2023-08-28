@@ -1,6 +1,6 @@
 ---
 - name: Install and configure MySQL with master-slave replication and VIP
-  tags: sqls
+  tags: sql
   become: true
   hosts: sql
   roles:

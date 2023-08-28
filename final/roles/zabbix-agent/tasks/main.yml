@@ -16,8 +16,8 @@
    - zabbix-agent2-plugin-*
    
 - name: Copy Zabbix conf 
-  copy:
-    src: zabbix_agent2.conf
+  template:
+    src: zabbix_agent2.conf.j2
     dest: /etc/zabbix/zabbix_agent2.conf
     owner: root
     group: root
